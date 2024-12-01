@@ -1,0 +1,349 @@
+# Product Requirements Document (PRD)
+
+## Project Overview
+
+The Newsletter Creator App is designed to automate and streamline the newsletter creation process for B2B marketers. The application allows users to select articles from a list, choose the type of summary for each article, and generate a newsletter preview. The app is built using Next.js 15, TailwindCSS, Shadcn, and Lucide Icons. Data fetching and storage are handled via a GraphQL API.
+
+## Goals and Objectives
+
+- **Efficiency**: Simplify the newsletter creation process by automating article summarization and newsletter assembly.
+- **User-Friendly Interface**: Provide an intuitive UI for selecting articles, customizing summaries, and generating previews.
+- **Scalability**: Ensure the app is scalable and maintainable by using modern frameworks and best practices.
+
+## Core Functionalities
+
+### 1. Article List Presentation
+
+- **Display Articles**: Present articles in a list format, showing the title, description, source, and relative date.
+- **"Add to Newsletter" Button**: Each article should have a button that allows users to add it to their newsletter.
+- **Summary Options**: Users can select the desired summary length for each article:
+  - Long
+  - Medium
+  - Short
+- **Filtering Options**: Users can filter articles by their age:
+  - Last 24 hours
+  - Last 3 days
+  - Last week
+  - Last month
+  - Last year
+  - All time
+- **Sorting Options**: Users can sort articles by:
+  - Newest
+  - Oldest
+- **Add New Article**: An "Add New Article" button allows users to input a new article URL via a modal window.
+
+### 2. Newsletter Preview
+
+- **Generate Newsletter**: A "Generate Newsletter" button that opens a new full-screen tab displaying the newsletter preview.
+- **Preview Content**: Show the selected articles with the chosen summaries in the newsletter format.
+
+## User Interface Design
+
+### Frameworks and Libraries
+- **Next.js 15**: For server-side rendering and routing
+- **TailwindCSS**: For utility-first CSS styling
+- **Shadcn**: For reusable UI components
+- **Lucide Icons**: For consistent and modern iconography
+
+### Design Considerations
+- Responsive design for compatibility with various screen sizes
+- Intuitive navigation and user flow
+- Accessibility compliance (e.g., ARIA labels, keyboard navigation)
+
+## Technical Requirements
+
+### Frontend
+- **Language**: TypeScript for type safety
+- **State Management**: React's built-in state management or Context API
+- **Routing**: Utilize Next.js routing for navigation between pages
+- **API Integration**: Implement GraphQL queries and mutations for data fetching and updating
+
+### Styling
+- **TailwindCSS**: Apply utility classes directly in JSX for styling components
+- **Component Library**: Use Shadcn components for consistent UI elements
+- **Icons**: Import Lucide icons where needed
+
+### Performance Optimizations
+- Code splitting and lazy loading
+- Memoization where appropriate
+
+## API Documentation
+
+### Fetching Articles: `getUserArticles()`
+
+#### Purpose
+Fetches a list of articles available to the user.
+
+#### TypeScript Interfaces
+```typescript
+export interface UserArticle {
+  source: string;
+  link: string;
+  title: string;
+  summary: string;
+  hostDomain: string;
+  relativeDate: string;
+  publishedDate?: Date;
+  score: Score;
+  rating: number;
+}
+
+interface Score {
+  depth_and_originality: number;
+  quality: number;
+  relevance: number;
+  rating: number;
+  simplified: number;
+}
+```
+
+#### Sample Implementation
+```typescript
+export async function getUserArticles(): Promise<UserArticle[]> {
+  const result = await client.graphql({
+    query: `
+      query ListUserArticles {
+        listUserArticles {
+          link
+          owner
+          publishedDate
+          source
+          hostDomain
+          summary
+          title
+          url
+          score {
+            depth_and_originality
+            quality
+            rating
+            relevance
+            simplified
+          }
+        }
+      }
+    `,
+  }) as GraphQLResult<ListUserArticlesResponse>;
+
+  // Implementation details...
+}
+```
+
+### Creating a Newsletter: `createNewsletter()`
+
+#### Purpose
+Sends a mutation to create a new newsletter with selected articles.
+
+#### Sample Implementation
+```typescript
+const result = await client.graphql<CreateNewsletterResponse>({
+  query: `
+    mutation CreateUserNewsletter($input: CreateNewsletterInput!) {
+      createNewsletter(input: $input) {
+        id
+        createdAt
+        owner
+        status
+        updatedAt
+        articles {
+          long
+          medium
+          short
+        }
+      }
+    }
+  `,
+  variables: {
+    input,
+  },
+}) as GraphQLResult<CreateNewsletterResponse>;
+```
+
+### Fetching a Newsletter: `getUserNewsletter()`
+
+#### Purpose
+Retrieves a newsletter by its ID for preview.
+
+#### Sample Implementation
+```typescript
+export async function getUserNewsletter(newsletterId: string): Promise<GetNewsletterResponse['getNewsletter']> {
+  const client = generateClient();
+  const query = /* GraphQL */ `
+    query GetNewsletter {
+      getNewsletter(id: "${newsletterId}") {
+        articles {
+          long
+          medium
+          short
+        }
+        baseNewsletter
+        createdAt
+        owner
+        status
+        updatedAt
+        id
+      }
+    }
+  `;
+
+  try {
+    const response = await client.graphql({
+      query,
+    }) as GraphQLResult<GetNewsletterResponse>;
+
+    return response.data.getNewsletter;
+  } catch (error) {
+    console.error('Error fetching newsletter:', error);
+    throw error;
+  }
+}
+```
+
+## Project File Structure
+
+```
+├── README.md
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── public
+│   └── [various SVG files]
+├── src
+│   ├── app
+│   │   ├── page.tsx
+│   │   ├── newsletter-preview.tsx
+│   │   ├── components
+│   │   │   ├── ArticleList.tsx
+│   │   │   ├── ArticleItem.tsx
+│   │   │   ├── FilterBar.tsx
+│   │   │   ├── AddArticleModal.tsx
+│   │   │   └── SummarySelector.tsx
+│   │   └── styles
+│   │       └── globals.css
+│   ├── graphql
+│   │   ├── queries.ts
+│   │   └── mutations.ts
+│   └── utils
+│       └── dateUtils.ts
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+## Data Flow and State Management
+
+### State Variables
+- `articles`: List of articles fetched from the API
+- `selectedArticles`: Articles selected for the newsletter
+- `filters`: Current filter and sort options
+- `showModal`: Boolean to control the visibility of AddArticleModal
+
+### Data Fetching
+- Use `getUserArticles` on component mount to fetch articles
+- Use `getUserNewsletter` when navigating to the newsletter preview
+
+### Event Handling
+- Adding Articles: Updates `selectedArticles` state
+- Filtering/Sorting: Updates `filters` state and re-fetches or re-filters articles
+- Adding New Articles: Submits new article via API and updates the article list
+
+## Error Handling and Validation
+
+### Article Fetching
+- Display a loader while fetching data
+- Show an error message if the fetch fails
+
+### Adding New Articles
+- Validate URL input
+- Show feedback if the article cannot be added
+
+### API Calls
+- Implement try-catch blocks
+- Gracefully handle errors and inform the user
+
+## Testing and Quality Assurance
+
+### Unit Tests
+- Test utility functions like `getRelativeTime`
+- Test components for proper rendering
+
+### Integration Tests
+- Test API interactions
+- Simulate user interactions for adding articles and generating newsletters
+
+### End-to-End Tests
+- Use tools like Cypress to test user flows
+
+## Deployment and Environment Setup
+
+### Development Environment
+- Node.js and npm installed
+- Run `npm install` to install dependencies
+- Run `npm run dev` to start the development server
+
+### Production Build
+- Run `npm run build` to create a production build
+- Run `npm start` to start the application in production mode
+
+### Environment Variables
+- Store API endpoints and keys securely
+- Use `.env.local` for local development
+
+## Dependencies and Tools
+
+### Frameworks
+- Next.js 15
+- React
+
+### Languages
+- TypeScript
+
+### Styling
+- TailwindCSS
+- Shadcn components
+
+### Icons
+- Lucide Icons
+
+### GraphQL
+- Apollo Client or equivalent for GraphQL operations
+
+### Testing
+- Jest
+- React Testing Library
+
+### Utilities
+- Date-fns or equivalent for date manipulation (if needed)
+
+## Timeline and Milestones
+
+### Week 1
+- Project setup and configuration
+- Implement `getUserArticles` function
+- Create basic UI for article list
+
+### Week 2
+- Implement filtering and sorting functionality
+- Develop ArticleItem and SummarySelector components
+
+### Week 3
+- Implement "Add New Article" feature with modal
+- Integrate API call for adding new articles
+
+### Week 4
+- Develop "Generate Newsletter" functionality
+- Implement `createNewsletter` and `getUserNewsletter` functions
+
+### Week 5
+- Build the newsletter preview page
+- Ensure data flows correctly from selection to preview
+
+### Week 6
+- Testing and QA
+- Optimize performance
+- Finalize UI/UX details
+
+## Future Enhancements
+- User Authentication: Implement user login and personalized data
+- Customization Options: Allow users to customize newsletter templates
+- Analytics: Provide insights on article engagement or newsletter performance
