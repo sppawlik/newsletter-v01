@@ -9,11 +9,16 @@ interface ArticleListProps {
     onSummaryLengthChange?: (articleId: string, length: SummaryLength) => void;
 }
 
+interface ArticleWithSelection extends UserArticle {
+    id: string;
+    summaryLength: SummaryLength;
+}
+
 export function ArticleList({
     onSelectedArticlesChange,
     onSummaryLengthChange,
 }: ArticleListProps): JSX.Element {
-    const [articles, setArticles] = useState<UserArticle[]>([]);
+    const [articles, setArticles] = useState<ArticleWithSelection[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [hasError, setHasError] = useState<boolean>(false);
     const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
@@ -27,7 +32,13 @@ export function ArticleList({
                 setIsLoading(true);
                 setHasError(false);
                 const fetchedArticles = await listUserArticles(startDate);
-                setArticles(fetchedArticles);
+                // Transform articles to include id and default summaryLength
+                const articlesWithSelection = fetchedArticles.map(article => ({
+                    ...article,
+                    id: article.link, // Using link as id since it should be unique
+                    summaryLength: 'medium' as SummaryLength // Default to medium
+                }));
+                setArticles(articlesWithSelection);
             } catch (error) {
                 console.error('Error fetching articles:', error);
                 setHasError(true);
@@ -47,35 +58,48 @@ export function ArticleList({
             } else {
                 newSet.delete(articleId);
             }
+            onSelectedArticlesChange?.(newSet);
             return newSet;
         });
-        onSelectedArticlesChange?.(selectedArticles);
     };
 
     const handleSummaryLengthChange = (articleId: string, length: SummaryLength) => {
+        setArticles(prev => 
+            prev.map(article => 
+                article.id === articleId 
+                    ? { ...article, summaryLength: length }
+                    : article
+            )
+        );
         onSummaryLengthChange?.(articleId, length);
     };
 
     const handleGenerateNewsletter = async () => {
         try {
-            const selectedArticlesArray = Array.from(selectedArticles);
             const input = {
                 articles: {
-                    short: selectedArticlesArray.filter(id => 
-                        articles.find(a => a.id === id)?.summaryLength === 'short'
-                    ),
-                    medium: selectedArticlesArray.filter(id => 
-                        articles.find(a => a.id === id)?.summaryLength === 'medium'
-                    ),
-                    long: selectedArticlesArray.filter(id => 
-                        articles.find(a => a.id === id)?.summaryLength === 'long'
-                    )
+                    short: articles
+                        .filter(article => 
+                            selectedArticles.has(article.id) && 
+                            article.summaryLength === 'short'
+                        )
+                        .map(article => article.link),
+                    medium: articles
+                        .filter(article => 
+                            selectedArticles.has(article.id) && 
+                            article.summaryLength === 'medium'
+                        )
+                        .map(article => article.link),
+                    long: articles
+                        .filter(article => 
+                            selectedArticles.has(article.id) && 
+                            article.summaryLength === 'long'
+                        )
+                        .map(article => article.link)
                 }
             };
 
             const result = await createNewsletter(input);
-            
-            // Open newsletter in new tab
             window.open(`/newsletter/${result.id}`, '_blank');
         } catch (error) {
             console.error('Error generating newsletter:', error);
@@ -97,25 +121,26 @@ export function ArticleList({
                 <Button 
                     onClick={handleGenerateNewsletter}
                     disabled={selectedArticles.size === 0}
-                    className="bg-primary hover:bg-primary/90"
+                    variant="default"
                 >
                     Generate Newsletter
                 </Button>
             </div>
             
-            {articles.length === 0 ? (
-                <div className="text-center py-4">No articles found</div>
-            ) : (
-                articles.map((article) => (
+            <div className="space-y-4">
+                {articles.map((article) => (
                     <ArticleItem
-                        key={article.link}
+                        key={article.id}
                         article={article}
-                        isSelected={selectedArticles.has(article.link)}
-                        onSelect={(selected) => handleArticleSelect(article.link, selected)}
-                        onSummaryLengthChange={(length) => handleSummaryLengthChange(article.link, length)}
+                        isSelected={selectedArticles.has(article.id)}
+                        onSelect={(selected) => handleArticleSelect(article.id, selected)}
+                        onSummaryLengthChange={(length) => handleSummaryLengthChange(article.id, length)}
                     />
-                ))
-            )}
+                ))}
+                {articles.length === 0 && (
+                    <div className="text-center py-4">No articles found</div>
+                )}
+            </div>
         </div>
     );
 }
