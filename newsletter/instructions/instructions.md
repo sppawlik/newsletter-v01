@@ -30,8 +30,8 @@ The Newsletter Creator App is designed to automate and streamline the newsletter
 
 ### 2. Newsletter Preview
 
-- **Generate Newsletter**: A "Generate Newsletter" button that opens a new full-screen browser tab displaying the newsletter preview.
-- **Preview Content**: Show the selected articles summaries in the newsletter format.
+- **Generate Newsletter**: A "Generate Newsletter" button that opens a new full-screen browser tab displaying the newsletter preview. 
+- **Preview Content**: Show the selected articles summaries in the newsletter format. The newsletter is fetch from the API.
 
 ## User Interface Design
 
@@ -149,6 +149,22 @@ Sends a mutation to create a new newsletter with selected articles.
 
 #### Sample Implementation
 ```typescript
+interface CreateNewsletterResponse {
+  createNewsletter: {
+    id: string;
+    createdAt: string;
+    owner: string;
+    status: string;
+    updatedAt: string;
+    articles: {
+      long: string[];
+      medium: string[];
+      short: string[];
+    };
+  };
+}
+
+
 const result = await client.graphql<CreateNewsletterResponse>({
   query: `
     mutation CreateUserNewsletter($input: CreateNewsletterInput!) {
